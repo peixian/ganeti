@@ -167,6 +167,7 @@ class ConfigWriter(object):
   def __init__(self, cfg_file=None, offline=False, _getents=runtime.GetEnts,
                accept_foreign=False, wconfdcontext=None, wconfd=None):
     self.write_count = 0
+    self._config_load_count = 0
     self._config_data = None
     self._SetConfigData(None)
     self._offline = offline
@@ -2648,6 +2649,8 @@ class ConfigWriter(object):
       self._UpgradeConfig(saveafter=True)
     else:
       if shared and not force:
+        source = "ReadConfig"
+        lock_mode = "none"
         if self._config_data is None:
           logging.debug("Requesting config, as I have no up-to-date copy")
           dict_data = self._wconfd.ReadConfig()
@@ -2655,6 +2658,8 @@ class ConfigWriter(object):
         else:
           dict_data = None
       else:
+        source = "LockConfig"
+        lock_mode = "shared" if shared else "exclusive"
         # poll until we acquire the lock
         while True:
           logging.debug("Receiving config from WConfd.LockConfig [shared=%s]",
@@ -2668,8 +2673,18 @@ class ConfigWriter(object):
 
       try:
         if dict_data is not None:
+          build_start = time.monotonic()
           self._SetConfigData(objects.ConfigData.FromDict(dict_data))
+          build_end = time.monotonic()
           self._UpgradeConfig()
+          upgrade_end = time.monotonic()
+          self._config_load_count += 1
+          logging.debug("Full config loaded: count=%d source=%s lock=%s"
+                        " context=%s serial=%s build_ms=%.3f upgrade_ms=%.3f",
+                        self._config_load_count, source, lock_mode,
+                        self._GetWConfdContext(), self._ConfigData().serial_no,
+                        1000 * (build_end - build_start),
+                        1000 * (upgrade_end - build_end))
       except Exception as err:
         raise errors.ConfigurationError(err)
 

@@ -61,7 +61,7 @@ import Ganeti.Locking.Locks ( GanetiLocks(ConfigLock, BGL)
                             , lockLevel, LockLevel
                             , ClientType(ClientOther), ClientId(..) )
 import qualified Ganeti.Locking.Waiting as LW
-import Ganeti.Objects (ConfigData, DRBDSecret, LogicalVolume, Ip4Address)
+import Ganeti.Objects (ConfigData, DRBDSecret, LogicalVolume, Ip4Address, serialOf)
 import Ganeti.Objects.Lens (configClusterL, clusterMasterNodeL)
 import Ganeti.WConfd.ConfigState (csConfigDataL)
 import qualified Ganeti.WConfd.ConfigVerify as V
@@ -96,6 +96,8 @@ readConfig = CW.readConfig
 writeConfig :: ClientId -> ConfigData -> WConfdMonad ()
 writeConfig ident cdata = do
   checkConfigLock ident L.OwnExclusive
+  logDebug $ "Received full config via writeConfig; client=" ++ show ident
+             ++ ", serial=" ++ show (serialOf cdata)
   -- V.verifyConfigErr cdata
   CW.writeConfig cdata
 
@@ -147,6 +149,8 @@ writeConfigAndUnlock cid cdata = do
   la <- readLockAllocation
   if L.holdsLock cid ConfigLock L.OwnExclusive la
     then do
+      logDebug $ "Received full config via writeConfigAndUnlock; client="
+                 ++ show cid ++ ", serial=" ++ show (serialOf cdata)
       CW.writeConfig cdata
       unlockConfig cid
       return True
