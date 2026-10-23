@@ -293,7 +293,8 @@ PYTHON_TEST_DIRS = \
 	test/py/unit/server \
 	test/py/unit/storage \
 	test/py/unit/test_data \
-	test/py/integration
+	test/py/integration \
+	test/py/integration/wconfd-lock-repro
 
 ALL_APIDOC_HS_DIRS = \
 	$(APIDOC_HS_DIR) \
@@ -1621,6 +1622,7 @@ myexeclib_scripts_basenames = $(notdir $(myexeclib_SCRIPTS))
 EXTRA_DIST += \
 	NEWS \
 	UPGRADE \
+	test/py/integration/wconfd-lock-repro/README.md \
 	pydoctor.ini \
 	pylintrc \
 	pylintrc-test \
@@ -2065,6 +2067,8 @@ python_tests_unit = \
 python_tests = $(python_tests_integration) $(python_tests_legacy) $(python_tests_unit)
 
 python_test_support = \
+	test/py/integration/wconfd-lock-repro/repro.py \
+	test/py/integration/wconfd-lock-repro/wconfd.py \
 	test/py/legacy/__init__.py \
 	test/py/legacy/lockperf.py \
 	test/py/legacy/testutils_ssh.py \
@@ -2737,6 +2741,16 @@ py-tests-unit: ganeti $(built_python_sources)
 .PHONY: py-tests-integration
 py-tests-integration: ganeti $(built_python_sources)
 	PYTHONPATH=: $(RUN_IN_TEMPDIR) pytest-3 ./test/py/integration/
+
+# The contention workload depends on timing, so run it explicitly.
+WCONFD_REPRO_ARGS =
+
+.PHONY: wconfd-lock-repro
+wconfd-lock-repro: exe/ganeti-wconfd ganeti $(built_python_sources)
+	$(PYTHON) $(top_srcdir)/test/py/integration/wconfd-lock-repro/repro.py \
+	  --build-dir "$(abs_top_builddir)" \
+	  --wconfd "$(abs_top_builddir)/exe/ganeti-wconfd" \
+	  $(WCONFD_REPRO_ARGS)
 
 .PHONY: hs-shell-%
 hs-shell-%: test/hs/hpc-htools test/hs/hpc-mon-collector \
